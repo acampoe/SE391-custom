@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <Arduino.h>
 #include "Receiver.h"
 
 Receiver receiver;
