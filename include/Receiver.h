@@ -7,6 +7,7 @@
 #include "Menu.h"
 #include "Settings.h"
 #include "Logger.h"
+#include "LC78212.h"
 
 class Receiver
 {
@@ -32,8 +33,11 @@ private:
     void setPoweredOn(bool on);
     void handleFrontPanelButton(const ButtonSignature *button);
     void selectInput(InputSource input);
-    void updateInputLed();
+    void toggleBassBoost();
+    void toggleMute();
+    void updatePanelLeds();
     static const char *inputName(InputSource input);
+    void applyInputSelection();
 
     const ButtonSignature *lastButton = nullptr;
     bool lastButtonPressed = false;
@@ -43,6 +47,8 @@ private:
     bool powerStablePressed = false;
     uint32_t powerLastChangeMs = 0;
     InputSource selectedInput = InputSource::Cd;
+    bool bassBoostOn = false;
+    bool muted = false;
 
     Logger logger;
     Buttons buttons;
@@ -51,4 +57,5 @@ private:
     Remote remote;
     Menu menu;
     Settings settings;
+    LC78212 inputSelector;
 };
