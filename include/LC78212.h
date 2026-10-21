@@ -18,15 +18,17 @@ public:
 
     void begin();
     void select(Switch selected);
+    void setMask(uint8_t mask);
     void allOff();
 
 private:
-    // Sony connects LC78212 pin 17 (S) low, selecting address A0..A3=0011.
-    static constexpr bool S_PIN_HIGH = false;
-    static constexpr uint16_t HALF_CLOCK_US = 5;
+    // Deliberately slow for the hand-wired, 10k pull-up transistor interface.
+    // This remains far inside the device's static serial-interface capability.
+    static constexpr uint16_t HALF_CLOCK_US = 100;
 
     static void writePhysical(uint8_t gpio, bool high);
     static void pulseClock();
     static void sendBit(bool bit);
+    void writeFrame(uint8_t mask, bool addressA0);
     void writeMask(uint8_t mask);
 };

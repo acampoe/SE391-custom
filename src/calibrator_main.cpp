@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 namespace {
-constexpr uint8_t ADC_PINS[] = {32, 33, 26, 27};
+constexpr uint8_t ADC_PINS[] = {32, 33, 34, 35};
 constexpr size_t ADC_COUNT = sizeof(ADC_PINS) / sizeof(ADC_PINS[0]);
 constexpr uint16_t PRESS_DELTA = 100;
 constexpr uint16_t RELEASE_DELTA = 60;

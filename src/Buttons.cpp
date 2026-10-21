@@ -2,7 +2,7 @@
 
 namespace
 {
-constexpr uint8_t ADC_PINS[SONY_ADC_COUNT] = {32, 33, 26, 27};
+constexpr uint8_t ADC_PINS[SONY_ADC_COUNT] = {32, 33, 34, 35};
 
 // No-button values present when sonyButtonDB was captured. Runtime signatures
 // are scaled to the idle values learned at boot, allowing for supply/divider
@@ -13,6 +13,12 @@ constexpr uint16_t CALIBRATION_IDLE[SONY_ADC_COUNT] =
 
 void Buttons::begin()
 {
+    candidateButton = nullptr;
+    currentButton = nullptr;
+    candidatePressed = false;
+    currentPressed = false;
+    candidateSinceMs = 0;
+
     analogReadResolution(12);
 
     for (uint8_t channel = 0; channel < SONY_ADC_COUNT; ++channel) {
@@ -98,31 +104,50 @@ const ButtonSignature *Buttons::findNearest(
     if (values[0] >= 110 && values[0] <= 330)
         return findByName("ENTER");
 
+    // Only one ladder channel is selected by a normal key. Match primarily
+    // on the channel with the largest proportional drop; inactive channels
+    // can move with supply loading and must not reject an otherwise valid key.
+    uint8_t activeChannel = 0;
+    uint32_t largestDrop = 0;
+    for (uint8_t channel = 0; channel < SONY_ADC_COUNT; ++channel) {
+        const uint32_t drop = values[channel] < idleValues[channel]
+                                  ? static_cast<uint32_t>(idleValues[channel] - values[channel])
+                                  : 0;
+        if (drop > largestDrop) {
+            largestDrop = drop;
+            activeChannel = channel;
+        }
+    }
+
     const ButtonSignature *nearest = nullptr;
     uint32_t nearestDistance = UINT32_MAX;
 
     for (size_t button = 0; button < SONY_BUTTON_COUNT; ++button) {
-        uint32_t distance = 0;
-        bool withinTolerance = true;
-
+        uint8_t expectedActiveChannel = 0;
+        uint16_t expectedLargestDrop = 0;
         for (uint8_t channel = 0; channel < SONY_ADC_COUNT; ++channel) {
-            const uint16_t expected = static_cast<uint16_t>(
-                (static_cast<uint32_t>(sonyButtonDB[button].adc[channel]) *
-                 idleValues[channel] + CALIBRATION_IDLE[channel] / 2) /
-                CALIBRATION_IDLE[channel]);
-
-            const uint16_t difference = abs(
-                static_cast<int>(values[channel]) -
-                static_cast<int>(expected));
-
-            if (difference > MATCH_TOLERANCE) {
-                withinTolerance = false;
-                break;
+            const uint16_t expectedDrop =
+                sonyButtonDB[button].adc[channel] < CALIBRATION_IDLE[channel]
+                    ? CALIBRATION_IDLE[channel] - sonyButtonDB[button].adc[channel]
+                    : 0;
+            if (expectedDrop > expectedLargestDrop) {
+                expectedLargestDrop = expectedDrop;
+                expectedActiveChannel = channel;
             }
-            distance += difference;
         }
 
-        if (withinTolerance && distance < nearestDistance) {
+        if (expectedActiveChannel != activeChannel)
+            continue;
+
+        const uint16_t expected = static_cast<uint16_t>(
+            (static_cast<uint32_t>(sonyButtonDB[button].adc[activeChannel]) *
+             idleValues[activeChannel] + CALIBRATION_IDLE[activeChannel] / 2) /
+            CALIBRATION_IDLE[activeChannel]);
+        const uint16_t distance = abs(
+            static_cast<int>(values[activeChannel]) -
+            static_cast<int>(expected));
+
+        if (distance <= MATCH_TOLERANCE && distance < nearestDistance) {
             nearestDistance = distance;
             nearest = &sonyButtonDB[button];
         }
